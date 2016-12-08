@@ -27,7 +27,15 @@ app.get('/api/imagesearch/:userQuery', function(req, res) {
     //first save the search
     saveSearch(req.params.userQuery, Date.now())
     // use imgur api to get results
-    var apiEndpoint = "https://api.imgur.com/3/gallery/search?q=" + req.params.userQuery
+
+    var searchQuery = ""
+    // Check for the offset val for getting page numbers
+    if(req.query.offset) {
+        searchQuery += "page=" + req.query.offset + "&"
+    }
+    searchQuery += "q=" + req.params.userQuery
+    
+    var apiEndpoint = "https://api.imgur.com/3/gallery/search?" + searchQuery
     var imgurClientId = process.env.IMGUR_CLIENT_ID;
     externalRequest(apiEndpoint, {
         headers: {
@@ -35,11 +43,11 @@ app.get('/api/imagesearch/:userQuery', function(req, res) {
         }
     },  function (error, response, body) {
         if (error) throw error 
-        console.log(JSON.parse(body).data)
+        
         var jsonData = JSON.parse(body).data 
     
         var dataInfo = parseResults(jsonData)
-        console.log(jsonData)
+     
         res.send(dataInfo)
         
 
