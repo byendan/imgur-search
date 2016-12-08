@@ -56,7 +56,28 @@ app.get('/api/imagesearch/:userQuery', function(req, res) {
 })
 
 app.get('/api/latest/imagesearch', function(req, res) {
-    res.send("This page needs some work")
+
+    
+      MongoClient.connect(dburl, function (err, db) {
+      if (err) {
+        throw err 
+      } else {
+        var searches = db.collection('searches')
+        db.collection('searches').find().toArray(function(err, data) {
+            if(err) throw err 
+            var cleanedUpData = []
+            for(var i = 0; i < data.length; i++) {
+                var cur = {
+                    "what": data[i].what,
+                    "when": data[i].when
+                }
+                cleanedUpData.push(cur)
+            }
+            res.send(cleanedUpData)
+            db.close()
+        })
+      }
+  })
 })
 
 
