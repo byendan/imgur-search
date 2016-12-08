@@ -1,17 +1,13 @@
 var express = require('express')
+var externalRequest = require('request')
+var mongodb = require('mongodb');
+
 var app = express()
 
-//lets require/import the mongodb native drivers.
-var mongodb = require('mongodb');
-//We need to work with "MongoClient" interface in order to connect to a mongodb server.
 var MongoClient = mongodb.MongoClient;
-
-// Connection URL. This is where your mongodb server is running.
-
-// My database url
 var dburl = process.env.MONGOLAB_URI;   
 
-
+// Verify the basics are working
 app.get('/', function (req, res) {
     // Use connect method to connect to the Server
   MongoClient.connect(dburl, function (err, db) {
@@ -20,13 +16,39 @@ app.get('/', function (req, res) {
       } else {
         console.log('Connection established successfully');
     
-        // do some work here with the database.
-    
-        //Close connection
+
         res.send("successfully got to the app, db is up!")
         db.close();
       }
   })
+})
+
+app.get('/api/imagesearch/:userQuery', function(req, res) {
+    //first save the search
+    saveSearch(req.params.userQuery, Date.now())
+    // use imgur api to get results
+    var apiEndpoint = "https://api.imgur.com/3/gallery/search?q=" + req.params.userQuery
+    var imgurClientId = process.env.IMGUR_CLIENT_ID;
+    externalRequest(apiEndpoint, {
+        headers: {
+            "Authorization": "Client-ID " + imgurClientId
+        }
+    },  function (error, response, body) {
+        if (error) throw error 
+        console.log(JSON.parse(body).data)
+        var jsonData = JSON.parse(body).data 
+    
+        var dataInfo = parseResults(jsonData)
+        console.log(jsonData)
+        res.send(dataInfo)
+        
+
+    })
+    
+})
+
+app.get('/api/latest/imagesearch', function(req, res) {
+    res.send("This page needs some work")
 })
 
 
@@ -34,3 +56,61 @@ app.get('/', function (req, res) {
 app.listen((process.env.PORT || 8080), function () {
   console.log('Server is up and running!')
 })
+
+function saveSearch(what, when) {
+    // If there is a pagination param don't use it
+    if(what.indexOf('?') > -1) {
+        what = what.split("?")[0]
+    }
+    when = new Date(when)
+    var saveInfo = {
+        "what": what,
+        "when": when
+    }
+    
+    // Save to db
+    MongoClient.connect(dburl, function(err, db) {
+        if(err) throw err 
+        var collection = db.collection('searches')
+        collection.insertOne(saveInfo, function(err, result) {
+            if(err) throw err 
+            console.log("The search info has been save, see: " + JSON.stringify(saveInfo))
+            db.close()
+        })
+    })
+}
+
+function parseResults(imgurPics) {
+    // if image has cover it will be at http://i.imgur.com/<cover>.jpg, its page will be at the link
+    // if its annimated it will at the link, and its page will be at http://imgur.com/gallery/<id>
+    var picsMeta = []
+    for(var i = 0; i < imgurPics.length; i++) {
+        
+        var currentPic = imgurPics[i]
+        var imgTitle = currentPic.title
+        var imgUrl = ""
+        var imgPage = ""
+        
+        if(currentPic.animated) {
+            imgUrl = currentPic.link
+            imgPage = 'http://imgur.com/gallery/' + currentPic.id
+        } else if(currentPic.cover) {
+            imgUrl = 'http://i.imgur.com/' + currentPic.cover
+            imgPage = currentPic.link
+        } else {
+            imgUrl = currentPic.link
+            imgPage = 'https://imgur.com/gallery/' + currentPic.id
+        }
+        
+        var imgMeta = {
+            url: imgUrl,
+            page: imgPage,
+            alt: imgTitle 
+        }
+        picsMeta.push(imgMeta)
+        
+    }
+    
+    
+    return picsMeta
+} 
