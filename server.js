@@ -16,8 +16,9 @@ app.get('/', function (req, res) {
       } else {
         console.log('Connection established successfully');
     
-
-        res.send("successfully got to the app, db is up!")
+        var herokuUrlOne = 'https://free-code-camp-imgur-search.herokuapp.com/api/latest/imagesearch/'
+        var herokuUrlTwo = 'https://free-code-camp-imgur-search.herokuapp.com/api/imagesearch/'
+        res.send("successfully got to the app, db is up! \nTry " + herokuUrlOne + " \nor " + herokuUrlTwo + "\n and don't forget to add a search term")
         db.close();
       }
   })
